@@ -17,7 +17,7 @@ const (
     h7 = 0x5BE0CD19
 )
 
-var K = []uint32{
+var _K = []uint32{
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
     0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
     0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
@@ -31,10 +31,19 @@ var K = []uint32{
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 }
 
-func xor(s1 string, s2 string) string {
-    x1, _ := strconv.ParseInt(s1, 2, 64)
-    x2, _ := strconv.ParseInt(s2, 2, 64)
-    return fmt.Sprintf("%.32b", x1^x2)
+func xor(s1 string, s2 string) (ans string) {
+    //x1, _ := strconv.ParseInt(s1, 2, 64)
+    //x2, _ := strconv.ParseInt(s2, 2, 64)
+    //ans = fmt.Sprintf("%.32b", x1^x2)
+    //return
+    for i := 0; i < len(s1); i++ {
+        if s1[i] == s2[i] {
+            ans = ans + "0"
+        } else {
+            ans = ans + "1"
+        }
+    }
+    return
 }
 
 func rotateRight(s string, l int) string {
@@ -54,13 +63,13 @@ func rotateLeft (s string, l int) string {
 }
 
 func shiftRight(s string, l int) string {
-    x, _ := strconv.ParseInt(s, 2, 32)
+    x, _ := strconv.ParseInt(s, 2, 64)
     x = x>>l
     return fmt.Sprintf("%.32b", x)
 }
 
 func shiftLeft (s string, l int) string {
-    x, _ := strconv.ParseInt(s, 2, 32)
+    x, _ := strconv.ParseInt(s, 2, 64)
     x = x<<l
     return fmt.Sprintf("%.32b", x)
 }
@@ -133,7 +142,7 @@ func chunkMessage(s string) [][]string {
     return chunks
 }
 
-func digestChunks(chunks [][]string) [][]string {
+func scheduleMessage(chunks [][]string) [][]string {
     var (
         op1 string
         op2 string
@@ -172,9 +181,9 @@ func main() {
     var s string
     s = "hello world"
     //s = strings.Repeat("A", 1000)
-    //fmt.Println(digestChunks(preProcess(s)))
-    //fmt.Println(len(digestChunks(preProcess(s))))
-    message := digestChunks(chunkMessage(preProcess(s)))
+    //fmt.Println(chunkMessage(preProcess(s)))
+    //fmt.Println(len(scheduleMessage(preProcess(s))))
+    message := scheduleMessage(chunkMessage(preProcess(s)))
     var tmp int64
     counter := 0
     for _, x := range message {
