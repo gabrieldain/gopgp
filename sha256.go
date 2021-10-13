@@ -102,9 +102,8 @@ func isBitString(s string) bool {
 	s = strings.ReplaceAll(s, "0", "")
 	if s == "" {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
 // stringToBits returns the binary representation of the input as a string.
@@ -137,10 +136,9 @@ func preProcess(s string) string {
 
 func createChunks(s string) [][]string {
 	var (
-		chunks       [][]string
-		words        []string
-		currentLen   int
-		currentStart int
+		chunks                   [][]string
+		words                    []string
+		currentLen, currentStart int
 	)
 	for i := range s {
 		if currentLen == 512 {
@@ -172,16 +170,8 @@ func createChunks(s string) [][]string {
 
 func createMessageSchedule(chunks [][]string) [][]string {
 	var (
-		op1    string
-		op2    string
-		op3    string
-		s0     string
-		s1     string
-		s0_int uint64
-		s1_int uint64
-		sum    uint64
-		x      uint64
-		y      uint64
+		op1, op2, op3, s0, s1   string
+		s0Int, s1Int, sum, x, y uint64
 	)
 	for i := range chunks {
 		for j := 16; j < 64; j++ {
@@ -189,15 +179,15 @@ func createMessageSchedule(chunks [][]string) [][]string {
 			op2 = rotateRight(chunks[i][j-15], 18)
 			op3 = shiftRight(chunks[i][j-15], 3)
 			s0 = xor(xor(op1, op2), op3)
-			s0_int, _ = strconv.ParseUint(s0, 2, 64)
+			s0Int, _ = strconv.ParseUint(s0, 2, 64)
 			op1 = rotateRight(chunks[i][j-2], 17)
 			op2 = rotateRight(chunks[i][j-2], 19)
 			op3 = shiftRight(chunks[i][j-2], 10)
 			s1 = xor(xor(op1, op2), op3)
-			s1_int, _ = strconv.ParseUint(s1, 2, 64)
+			s1Int, _ = strconv.ParseUint(s1, 2, 64)
 			x, _ = strconv.ParseUint(chunks[i][j-16], 2, 64)
 			y, _ = strconv.ParseUint(chunks[i][j-7], 2, 64)
-			sum = s0_int + s1_int + x + y
+			sum = s0Int + s1Int + x + y
 			sum = sum % (1 << 32) // sum is calculated modulo 2^32
 			chunks[i][j] = fmt.Sprintf("%.32b", sum)
 		}
@@ -207,70 +197,71 @@ func createMessageSchedule(chunks [][]string) [][]string {
 
 func compressMessage(chunks [][]string) string {
 	var (
-		h_0, h_1, h_2, h_3, h_4, h_5, h_6, h_7                           int = h0, h1, h2, h3, h4, h5, h6, h7
-		s0, s1, op1, op2, op3, ch, maj                                   string
-		s0_int, s1_int, d_int, h_int, w_int, ch_int, maj_int, tmp1, tmp2 uint64
+		hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7    int = h0, h1, h2, h3, h4, h5, h6, h7
+		s0, s1, op1, op2, op3, ch, maj                            string
+		s0Int, s1Int, dInt, hInt, wInt, chInt, majInt, tmp1, tmp2 uint64
 	)
 	for i := range chunks {
-		a := fmt.Sprintf("%.32b", h_0)
-		b := fmt.Sprintf("%.32b", h_1)
-		c := fmt.Sprintf("%.32b", h_2)
-		d := fmt.Sprintf("%.32b", h_3)
-		e := fmt.Sprintf("%.32b", h_4)
-		f := fmt.Sprintf("%.32b", h_5)
-		g := fmt.Sprintf("%.32b", h_6)
-		h := fmt.Sprintf("%.32b", h_7)
+		a := fmt.Sprintf("%.32b", hash0)
+		b := fmt.Sprintf("%.32b", hash1)
+		c := fmt.Sprintf("%.32b", hash2)
+		d := fmt.Sprintf("%.32b", hash3)
+		e := fmt.Sprintf("%.32b", hash4)
+		f := fmt.Sprintf("%.32b", hash5)
+		g := fmt.Sprintf("%.32b", hash6)
+		h := fmt.Sprintf("%.32b", hash7)
 		for j := range chunks[i] {
 			op1 = rotateRight(e, 6)
 			op2 = rotateRight(e, 11)
 			op3 = rotateRight(e, 25)
 			s1 = xor(xor(op1, op2), op3)
 			ch = xor(and(e, f), and(not(e), g))
-			h_int, _ = strconv.ParseUint(h, 2, 64)
-			s1_int, _ = strconv.ParseUint(s1, 2, 64)
-			ch_int, _ = strconv.ParseUint(ch, 2, 64)
-			w_int, _ = strconv.ParseUint(chunks[i][j], 2, 64)
-			tmp1 = h_int + s1_int + ch_int + uint64(_K[j]) + w_int
+			hInt, _ = strconv.ParseUint(h, 2, 64)
+			s1Int, _ = strconv.ParseUint(s1, 2, 64)
+			chInt, _ = strconv.ParseUint(ch, 2, 64)
+			wInt, _ = strconv.ParseUint(chunks[i][j], 2, 64)
+			tmp1 = hInt + s1Int + chInt + uint64(_K[j]) + wInt
 			tmp1 = tmp1 % (1 << 32) // tmp1 is calculated modulo 2^32
 			op1 = rotateRight(a, 2)
 			op2 = rotateRight(a, 13)
 			op3 = rotateRight(a, 22)
 			s0 = xor(xor(op1, op2), op3)
 			maj = xor(xor(and(a, b), and(a, c)), and(b, c))
-			d_int, _ = strconv.ParseUint(d, 2, 64)
-			s0_int, _ = strconv.ParseUint(s0, 2, 64)
-			maj_int, _ = strconv.ParseUint(maj, 2, 64)
-			tmp2 = s0_int + maj_int
+			dInt, _ = strconv.ParseUint(d, 2, 64)
+			s0Int, _ = strconv.ParseUint(s0, 2, 64)
+			majInt, _ = strconv.ParseUint(maj, 2, 64)
+			tmp2 = s0Int + majInt
 			tmp2 = tmp2 % (1 << 32) // tmp2 is calculated modulo 2^32
 			h = g
 			g = f
 			f = e
-			e = fmt.Sprintf("%.32b", (d_int+tmp1)%(1<<32))
+			e = fmt.Sprintf("%.32b", (dInt+tmp1)%(1<<32))
 			d = c
 			c = b
 			b = a
 			a = fmt.Sprintf("%.32b", (tmp1+tmp2)%(1<<32))
 		}
-		h_0 = (h_0 + int(bitsToInt(a))) % (1 << 32)
-		h_1 = (h_1 + int(bitsToInt(b))) % (1 << 32)
-		h_2 = (h_2 + int(bitsToInt(c))) % (1 << 32)
-		h_3 = (h_3 + int(bitsToInt(d))) % (1 << 32)
-		h_4 = (h_4 + int(bitsToInt(e))) % (1 << 32)
-		h_5 = (h_5 + int(bitsToInt(f))) % (1 << 32)
-		h_6 = (h_6 + int(bitsToInt(g))) % (1 << 32)
-		h_7 = (h_7 + int(bitsToInt(h))) % (1 << 32)
+		hash0 = (hash0 + int(bitsToInt(a))) % (1 << 32)
+		hash1 = (hash1 + int(bitsToInt(b))) % (1 << 32)
+		hash2 = (hash2 + int(bitsToInt(c))) % (1 << 32)
+		hash3 = (hash3 + int(bitsToInt(d))) % (1 << 32)
+		hash4 = (hash4 + int(bitsToInt(e))) % (1 << 32)
+		hash5 = (hash5 + int(bitsToInt(f))) % (1 << 32)
+		hash6 = (hash6 + int(bitsToInt(g))) % (1 << 32)
+		hash7 = (hash7 + int(bitsToInt(h))) % (1 << 32)
 	}
-	h_0_hex := fmt.Sprintf("%x", h_0)
-	h_1_hex := fmt.Sprintf("%x", h_1)
-	h_2_hex := fmt.Sprintf("%x", h_2)
-	h_3_hex := fmt.Sprintf("%x", h_3)
-	h_4_hex := fmt.Sprintf("%x", h_4)
-	h_5_hex := fmt.Sprintf("%x", h_5)
-	h_6_hex := fmt.Sprintf("%x", h_6)
-	h_7_hex := fmt.Sprintf("%x", h_7)
-	return h_0_hex + h_1_hex + h_2_hex + h_3_hex + h_4_hex + h_5_hex + h_6_hex + h_7_hex
+	h0Hex := fmt.Sprintf("%x", hash0)
+	h1Hex := fmt.Sprintf("%x", hash1)
+	h2Hex := fmt.Sprintf("%x", hash2)
+	h3Hex := fmt.Sprintf("%x", hash3)
+	h4Hex := fmt.Sprintf("%x", hash4)
+	h5Hex := fmt.Sprintf("%x", hash5)
+	h6Hex := fmt.Sprintf("%x", hash6)
+	h7Hex := fmt.Sprintf("%x", hash7)
+	return h0Hex + h1Hex + h2Hex + h3Hex + h4Hex + h5Hex + h6Hex + h7Hex
 }
 
+// Digest returns the SHA256 message digest of a string.
 func Digest(s string) string {
 	return compressMessage(createMessageSchedule(createChunks(preProcess(s))))
 }
