@@ -31,6 +31,29 @@ var _K = []uint32{
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 }
 
+func and(s1 string, s2 string) (ans string) {
+    for i := 0; i < len(s1); i++ {
+        if s1[i] == '1' && s2[i] == '1' {
+            ans = ans + "1"
+        } else {
+            ans = ans + "0"
+        }
+    }
+    return
+}
+
+func not(s string) (ans string) {
+    for i:= range s {
+        if s[i] == '0' {
+            ans = ans + "1"
+        } else {
+            ans = ans + "0"
+        }
+    }
+    return
+}
+
+
 func xor(s1 string, s2 string) (ans string) {
     //x1, _ := strconv.ParseInt(s1, 2, 64)
     //x2, _ := strconv.ParseInt(s2, 2, 64)
@@ -93,6 +116,12 @@ func stringToBits(s string) (bitString string) {
     return
 }
 
+// bitsToInt returns the decimal representation of a bitstring as an uint64.
+func bitsToInt(s string) uint64 {
+    x, _ := strconv.ParseUint(s, 2, 64)
+    return x
+}
+
 // preProcess adds a "1" to the end of the input, followed by a number of
 // zeroes such that the length of the original string plus the added zeroes
 // (not including the added 1s) is a multiple of 512, minus 64, followed by
@@ -107,7 +136,7 @@ func preProcess(s string) string {
     return s
 }
 
-func chunkMessage(s string) [][]string {
+func createChunks(s string) [][]string {
     var (
         chunks [][]string
         words []string
@@ -142,15 +171,15 @@ func chunkMessage(s string) [][]string {
     return chunks
 }
 
-func scheduleMessage(chunks [][]string) [][]string {
+func createMessageSchedule(chunks [][]string) [][]string {
     var (
         op1 string
         op2 string
         op3 string
         s0 string
         s1 string
-        int0 uint64
-        int1 uint64
+        s0_int uint64
+        s1_int uint64
         sum uint64
         x uint64
         y uint64
@@ -161,15 +190,15 @@ func scheduleMessage(chunks [][]string) [][]string {
             op2 = rotateRight(chunks[i][j-15], 18)
             op3 = shiftRight(chunks[i][j-15], 3)
             s0 = xor(xor(op1, op2), op3)
-            int0, _ = strconv.ParseUint(s0, 2, 64)
+            s0_int, _ = strconv.ParseUint(s0, 2, 64)
             op1 = rotateRight(chunks[i][j-2], 17)
             op2 = rotateRight(chunks[i][j-2], 19)
             op3 = shiftRight(chunks[i][j-2], 10)
             s1 = xor(xor(op1, op2), op3)
-            int1, _ = strconv.ParseUint(s1, 2, 64)
+            s1_int, _ = strconv.ParseUint(s1, 2, 64)
             x, _ = strconv.ParseUint(chunks[i][j-16], 2, 64)
             y, _ = strconv.ParseUint(chunks[i][j-7], 2, 64)
-            sum = int0 + int1 + x + y
+            sum = s0_int + s1_int + x + y
             sum = sum % (1<<32) // sum is calculated modulo 2^32
             chunks[i][j] = fmt.Sprintf("%.32b", sum)
         }
@@ -177,21 +206,79 @@ func scheduleMessage(chunks [][]string) [][]string {
     return chunks
 }
 
+func compressMessage(chunks [][]string) string {
+    var (
+        h_0, h_1, h_2, h_3, h_4, h_5, h_6, h_7 int = h0,h1,h2,h3,h4,h5,h6,h7
+        s0, s1, op1, op2, op3, ch, maj string
+        s0_int, s1_int, d_int, h_int, w_int, ch_int, maj_int, tmp1, tmp2 uint64
+    )
+    for i  := range chunks {
+        a := fmt.Sprintf("%.32b", h_0)
+        b := fmt.Sprintf("%.32b", h_1)
+        c := fmt.Sprintf("%.32b", h_2)
+        d := fmt.Sprintf("%.32b", h_3)
+        e := fmt.Sprintf("%.32b", h_4)
+        f := fmt.Sprintf("%.32b", h_5)
+        g := fmt.Sprintf("%.32b", h_6)
+        h := fmt.Sprintf("%.32b", h_7)
+        for j := range chunks[i] {
+            op1 = rotateRight(e, 6)
+            op2 = rotateRight(e, 11)
+            op3 = rotateRight(e, 25)
+            s1 = xor(xor(op1, op2), op3)
+            ch = xor(and(e, f), and(not(e), g))
+            h_int, _ = strconv.ParseUint(h, 2, 64)
+            s1_int, _ = strconv.ParseUint(s1, 2, 64)
+            ch_int, _ = strconv.ParseUint(ch, 2, 64)
+            w_int, _ = strconv.ParseUint(chunks[i][j], 2, 64)
+            tmp1 = h_int + s1_int + ch_int + uint64(_K[j]) + w_int
+            tmp1 = tmp1 % (1<<32) // tmp1 is calculated modulo 2^32
+            op1 = rotateRight(a, 2)
+            op2 = rotateRight(a, 13)
+            op3 = rotateRight(a, 22)
+            s0 = xor(xor(op1, op2), op3)
+            maj = xor(xor(and(a, b), and(a, c)), and(b, c))
+            d_int, _ = strconv.ParseUint(d, 2, 64)
+            s0_int, _ = strconv.ParseUint(s0, 2, 64)
+            maj_int, _ = strconv.ParseUint(maj, 2, 64)
+            tmp2 = s0_int + maj_int
+            tmp2 = tmp2 % (1<<32) // tmp2 is calculated modulo 2^32
+            h = g
+            g = f
+            f = e
+            e = fmt.Sprintf("%.32b", (d_int + tmp1) % (1<<32))
+            d = c
+            c = b
+            b = a
+            a = fmt.Sprintf("%.32b", (tmp1 + tmp2) % (1<<32))
+        }
+        h_0 = (h_0 + int(bitsToInt(a))) % (1<<32)
+        h_1 = (h_1 + int(bitsToInt(b))) % (1<<32)
+        h_2 = (h_2 + int(bitsToInt(c))) % (1<<32)
+        h_3 = (h_3 + int(bitsToInt(d))) % (1<<32)
+        h_4 = (h_4 + int(bitsToInt(e))) % (1<<32)
+        h_5 = (h_5 + int(bitsToInt(f))) % (1<<32)
+        h_6 = (h_6 + int(bitsToInt(g))) % (1<<32)
+        h_7 = (h_7 + int(bitsToInt(h))) % (1<<32)
+    }
+    h_0_hex := fmt.Sprintf("%x", h_0)
+    h_1_hex := fmt.Sprintf("%x", h_1)
+    h_2_hex := fmt.Sprintf("%x", h_2)
+    h_3_hex := fmt.Sprintf("%x", h_3)
+    h_4_hex := fmt.Sprintf("%x", h_4)
+    h_5_hex := fmt.Sprintf("%x", h_5)
+    h_6_hex := fmt.Sprintf("%x", h_6)
+    h_7_hex := fmt.Sprintf("%x", h_7)
+    return h_0_hex+h_1_hex+h_2_hex+h_3_hex+h_4_hex+h_5_hex+h_6_hex+h_7_hex
+}
+
+func Digest(s string) string {
+    return compressMessage(createMessageSchedule(createChunks(preProcess(s))))
+}
+
 func main() {
     var s string
     s = "hello world"
-    //s = strings.Repeat("A", 1000)
-    //fmt.Println(chunkMessage(preProcess(s)))
-    //fmt.Println(len(scheduleMessage(preProcess(s))))
-    message := scheduleMessage(chunkMessage(preProcess(s)))
-    var tmp int64
-    counter := 0
-    for _, x := range message {
-        for _, y := range x {
-            tmp, _ = strconv.ParseInt(y, 2, 64)
-            fmt.Printf("%v, %v, %v\n", counter, y, tmp)
-            counter++
-        }
-    }
-    fmt.Println(len(message))
+    //s = strings.Repeat("A", 10000)
+    fmt.Println(Digest(s))
 }
